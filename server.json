@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Jing7ao/seedance-mcp",
+  "description": "Seedance AI 视频生成 MCP Server - 让 Claude Code 直接生成 AI 视频",
+  "repository": {
+    "url": "https://github.com/Jing7ao/seedance-mcp",
+    "source": "github"
+  },
+  "version": "1.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "seedance-mcp",
+      "version": "1.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Your API key for the service",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "YOUR_API_KEY"
+        }
+      ]
+    }
+  ]
+}

@@ -13,13 +13,27 @@ npm install -g seedance-mcp
 
 ## 快速开始
 
-### 1. 获取 API Key
+### Pro 用户（推荐 · 零配置）
 
-去 [火山引擎 ARK 控制台](https://console.volcengine.com/ark) 注册并获取 API Key（新用户有免费额度）。
+使用托管网关，无需自备 API Key：
 
-### 2. 配置 Claude Code
+```json
+{
+  "mcpServers": {
+    "seedance": {
+      "command": "node",
+      "args": ["seedance-mcp"],
+      "env": {
+        "LICENSE_KEY": "SLIC-你的Pro License Key"
+      }
+    }
+  }
+}
+```
 
-编辑 `~/.claude/mcp.json`：
+### Free 用户（需自备 API Key）
+
+去 [火山引擎 ARK 控制台](https://console.volcengine.com/ark) 注册获取 API Key（新用户有免费额度）：
 
 ```json
 {
@@ -36,7 +50,7 @@ npm install -g seedance-mcp
 }
 ```
 
-### 3. 开始生成
+### 开始生成
 
 在 Claude Code 对话中直接说：
 - 「生成一个 5 秒的治愈系森林视频，1080p」
@@ -46,12 +60,12 @@ npm install -g seedance-mcp
 
 ## 定价
 
-| 等级 | 价格 | 视频生成 |
-|------|------|----------|
-| **Free** | 免费 | 5 次/天 |
-| **Pro** | ￥105/年 | 无限生成 |
+| 等级 | 价格 | 视频生成 | API Key |
+|------|------|----------|---------|
+| **Free** | 免费 | 5 次/天 | 需自备 |
+| **Pro** | ￥105/年 | 无限生成 | 已内置，无需自备 |
 
-> API 调用费用由你的火山引擎账号承担（约 ¥0.05/条 720p）。
+> Pro 用户 API 调用费用已包含在订阅中，无需额外付费。
 
 [升级 Pro →](https://paypal.me/Jing7ao)
 

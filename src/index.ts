@@ -9,13 +9,25 @@ import { checkLicense, printLicenseBanner, parseLicense, getFreeUsage } from "./
 
 const API_KEY = process.env.ARK_API_KEY || "";
 const MODEL = process.env.SEEDANCE_MODEL || "doubao-seedance-2-0-260128";
+const GATEWAY_URL = "https://seedance-mcp.mcpize.run";
 
-if (!API_KEY) {
-  console.error("错误: 请设置 ARK_API_KEY 环境变量");
-  process.exit(1);
+// 代调用模式：API Key 由 MCPize 网关注入，用户无需自备
+let client: SeedanceClient | null = null;
+function getClient(): SeedanceClient {
+  if (!client) {
+    if (!API_KEY) {
+      throw new Error(
+        `未配置 ARK_API_KEY。\n` +
+        `方案 1（推荐）: 使用托管网关，无需自备 Key\n` +
+        `  在 mcp.json 中替换 command 为: "npx -y @anthropic/mcp-gateway ${GATEWAY_URL}" \n` +
+        `方案 2: 自备火山引擎 ARK API Key\n` +
+        `  设置环境变量 ARK_API_KEY=你的key`
+      );
+    }
+    client = new SeedanceClient(API_KEY, MODEL);
+  }
+  return client;
 }
-
-const client = new SeedanceClient(API_KEY, MODEL);
 
 // ============================================
 // Usage tracking (for pay-per-use billing)
@@ -87,7 +99,7 @@ server.tool(
   },
   async ({ prompt, duration, resolution, ratio }) => {
     const blocked = guard(); if (blocked) return blocked;
-    const task = await client.submitTask({
+    const task = await getClient().submitTask({
       prompt,
       duration,
       resolution,
@@ -133,7 +145,7 @@ server.tool(
   },
   async ({ prompt, imageUrl, role, duration, resolution, ratio }) => {
     const blocked = guard(); if (blocked) return blocked;
-    const task = await client.submitTask({
+    const task = await getClient().submitTask({
       prompt,
       imageUrl,
       imageRole: role,
@@ -174,9 +186,9 @@ server.tool(
   async ({ taskId, wait, interval }) => {
     let task;
     if (wait) {
-      task = await client.pollTask(taskId, interval, 3600);
+      task = await getClient().pollTask(taskId, interval, 3600);
     } else {
-      task = await client.queryTask(taskId);
+      task = await getClient().queryTask(taskId);
     }
 
     const statusEmoji: Record<string, string> = {
@@ -191,7 +203,7 @@ server.tool(
     const emoji = statusEmoji[status] || "❓";
 
     if (status === "succeeded") {
-      const urls = client.extractUrls(task);
+      const urls = getClient().extractUrls(task);
       return {
         content: [
           {
@@ -326,7 +338,8 @@ async function main() {
   printLicenseBanner();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`Seedance MCP Server v1.1.0 已启动`);
+  console.error(`Seedance MCP Server v1.1.1 已启动`);
+  console.error(`模式: ${API_KEY ? "自备Key" : "代调用（需通过MCPize网关）"}`);
   console.error(`模型: ${MODEL}`);
 }
 

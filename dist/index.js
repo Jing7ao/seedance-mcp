@@ -5,13 +5,25 @@ import { SeedanceClient } from "./seedance-client.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { checkLicense, printLicenseBanner, parseLicense, getFreeUsage } from "./verify.js";
 const API_KEY = process.env.ARK_API_KEY || "";
 const MODEL = process.env.SEEDANCE_MODEL || "doubao-seedance-2-0-260128";
-if (!API_KEY) {
-    console.error("错误: 请设置 ARK_API_KEY 环境变量");
-    process.exit(1);
+const GATEWAY_URL = "https://seedance-mcp.mcpize.run";
+// 代调用模式：API Key 由 MCPize 网关注入，用户无需自备
+let client = null;
+function getClient() {
+    if (!client) {
+        if (!API_KEY) {
+            throw new Error(`未配置 ARK_API_KEY。\n` +
+                `方案 1（推荐）: 使用托管网关，无需自备 Key\n` +
+                `  在 mcp.json 中替换 command 为: "npx -y @anthropic/mcp-gateway ${GATEWAY_URL}" \n` +
+                `方案 2: 自备火山引擎 ARK API Key\n` +
+                `  设置环境变量 ARK_API_KEY=你的key`);
+        }
+        client = new SeedanceClient(API_KEY, MODEL);
+    }
+    return client;
 }
-const client = new SeedanceClient(API_KEY, MODEL);
 // ============================================
 // Usage tracking (for pay-per-use billing)
 // ============================================
@@ -45,9 +57,16 @@ function trackUsage(taskId, duration, resolution) {
     writeFileSync(USAGE_FILE, JSON.stringify(usage, null, 2));
     console.error(`[Usage] 本月: ${usage.thisMonth} | 累计: ${usage.totalVideos} 条`);
 }
+function guard() {
+    const result = checkLicense();
+    if ("error" in result) {
+        return { content: [{ type: "text", text: result.error }] };
+    }
+    return null;
+}
 const server = new McpServer({
     name: "seedance-mcp",
-    version: "1.0.0",
+    version: "1.1.0",
 });
 // ============================================
 // 工具 1: 文生视频
@@ -58,7 +77,10 @@ server.tool("text_to_video", "用文字描述生成 AI 视频（文生视频）�
     resolution: z.enum(["720p", "1080p"]).default("720p").describe("分辨率"),
     ratio: z.enum(["16:9", "9:16", "1:1"]).default("16:9").describe("画面比例"),
 }, async ({ prompt, duration, resolution, ratio }) => {
-    const task = await client.submitTask({
+    const blocked = guard();
+    if (blocked)
+        return blocked;
+    const task = await getClient().submitTask({
         prompt,
         duration,
         resolution,
@@ -97,7 +119,10 @@ server.tool("image_to_video", "用一张图片作为首帧或参考图，生成 
     resolution: z.enum(["720p", "1080p"]).default("720p").describe("分辨率"),
     ratio: z.enum(["16:9", "9:16", "1:1"]).default("16:9").describe("画面比例"),
 }, async ({ prompt, imageUrl, role, duration, resolution, ratio }) => {
-    const task = await client.submitTask({
+    const blocked = guard();
+    if (blocked)
+        return blocked;
+    const task = await getClient().submitTask({
         prompt,
         imageUrl,
         imageRole: role,
@@ -132,10 +157,10 @@ server.tool("poll_result", "查询视频生成任务的状态和结果。完成�
 }, async ({ taskId, wait, interval }) => {
     let task;
     if (wait) {
-        task = await client.pollTask(taskId, interval, 3600);
+        task = await getClient().pollTask(taskId, interval, 3600);
     }
     else {
-        task = await client.queryTask(taskId);
+        task = await getClient().queryTask(taskId);
     }
     const statusEmoji = {
         queued: "⏳",
@@ -147,7 +172,7 @@ server.tool("poll_result", "查询视频生成任务的状态和结果。完成�
     const status = task.status;
     const emoji = statusEmoji[status] || "❓";
     if (status === "succeeded") {
-        const urls = client.extractUrls(task);
+        const urls = getClient().extractUrls(task);
         return {
             content: [
                 {
@@ -212,12 +237,58 @@ server.tool("get_usage_stats", "查询当前账号的 Seedance 视频生成用�
     };
 });
 // ============================================
+// 工具 5: 验证 License
+// ============================================
+server.tool("verify_license", "查询当前 Seedance MCP 的 License 激活状态。Free tier 每天 5 次视频生成，Pro 无限使用。", {}, async () => {
+    const key = process.env.LICENSE_KEY;
+    if (!key) {
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: [
+                        "License 状态: 未激活 (Free tier)",
+                        `剩余次数: ${5 - getFreeUsage()} / 5 次`,
+                        "",
+                        "升级 Pro 无限使用: https://paypal.me/Jing7ao",
+                        "购买后设置: export LICENSE_KEY=\"SLIC-...\"",
+                    ].join("\n"),
+                },
+            ],
+        };
+    }
+    const data = parseLicense(key);
+    if (!data) {
+        return {
+            content: [{ type: "text", text: "License 无效或已过期。\n购买新 key: https://paypal.me/Jing7ao" }],
+        };
+    }
+    return {
+        content: [
+            {
+                type: "text",
+                text: [
+                    "License 状态: 已激活",
+                    `邮箱: ${data.email}`,
+                    `等级: ${data.tier}`,
+                    `到期: ${data.expires}`,
+                    data.expires && new Date(data.expires) > new Date()
+                        ? `剩余 ${Math.ceil((new Date(data.expires).getTime() - Date.now()) / 86400000)} 天`
+                        : "",
+                ].join("\n"),
+            },
+        ],
+    };
+});
+// ============================================
 // 启动服务器
 // ============================================
 async function main() {
+    printLicenseBanner();
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error(`Seedance MCP Server v1.0.0 已启动`);
+    console.error(`Seedance MCP Server v1.1.1 已启动`);
+    console.error(`模式: ${API_KEY ? "自备Key" : "代调用（需通过MCPize网关）"}`);
     console.error(`模型: ${MODEL}`);
 }
 main().catch((err) => {
