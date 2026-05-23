@@ -1,0 +1,4 @@
+node_modules/
+*.tsbuildinfo
+*.mp4
+last_task_id.txt

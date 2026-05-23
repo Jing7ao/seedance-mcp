@@ -1,0 +1,53 @@
+{
+  "name": "seedance-mcp",
+  "version": "1.0.0",
+  "description": "让 Claude Code 直接调用火山引擎 Seedance API 生成 AI 视频。支持文生视频、图生视频、四模态输入。",
+  "vendor": "Seedance MCP",
+  "contact": {
+    "type": "github",
+    "url": "https://github.com/Jing7ao/seedance-mcp"
+  },
+  "tools": [
+    {
+      "name": "text_to_video",
+      "description": "用文字描述生成 AI 视频（文生视频）",
+      "readOnly": false,
+      "destructive": false
+    },
+    {
+      "name": "image_to_video",
+      "description": "用图片作为首帧或参考图生成 AI 视频（图生视频）",
+      "readOnly": false,
+      "destructive": false
+    },
+    {
+      "name": "poll_result",
+      "description": "查询视频生成任务的状态和结果",
+      "readOnly": true,
+      "destructive": false
+    },
+    {
+      "name": "get_usage_stats",
+      "description": "查询视频生成用量统计",
+      "readOnly": true,
+      "destructive": false
+    }
+  ],
+  "transport": "stdio",
+  "command": "node",
+  "args": ["dist/index.js"],
+  "env": {
+    "ARK_API_KEY": "${ARK_API_KEY}",
+    "SEEDANCE_MODEL": "doubao-seedance-2-0-260128"
+  },
+  "pricing": {
+    "free": "每月 5 条 720p 视频",
+    "pro": "$15/月 — 50 条 1080p + 图生视频",
+    "payg": "$0.05/条按量付费"
+  },
+  "categories": ["ai-video", "content-creation", "api-integration"],
+  "keywords": ["seedance", "video-generation", "ai-video", "text-to-video", "image-to-video", "火山引擎", "豆包"],
+  "license": "MIT",
+  "homepage": "https://github.com/Jing7ao/seedance-mcp",
+  "repository": "https://github.com/Jing7ao/seedance-mcp"
+}
