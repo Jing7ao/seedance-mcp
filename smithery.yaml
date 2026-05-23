@@ -1,0 +1,23 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - arkApiKey
+    properties:
+      arkApiKey:
+        type: string
+        description: 火山引擎 ARK API Key
+      model:
+        type: string
+        default: doubao-seedance-2-0-260128
+        description: Seedance 模型 ID
+  commandFunction: |
+    (config) => ({
+      command: 'node',
+      args: ['dist/index.js'],
+      env: {
+        ARK_API_KEY: config.arkApiKey,
+        SEEDANCE_MODEL: config.model || 'doubao-seedance-2-0-260128'
+      }
+    })
