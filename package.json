@@ -1,12 +1,9 @@
 {
   "name": "seedance-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Seedance AI 视频生成 MCP Server - 让 Claude Code 直接生成 AI 视频",
   "type": "module",
   "main": "dist/index.js",
-  "bin": {
-    "seedance-mcp": "./dist/index.js"
-  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
@@ -14,6 +11,7 @@
   },
   "keywords": ["mcp", "seedance", "ai-video", "video-generation"],
   "author": "Jing7ao",
+  "mcpName": "io.github.Jing7ao/seedance-mcp",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

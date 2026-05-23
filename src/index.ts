@@ -5,6 +5,7 @@ import { SeedanceClient } from "./seedance-client.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { checkLicense, printLicenseBanner, parseLicense, getFreeUsage } from "./verify.js";
 
 const API_KEY = process.env.ARK_API_KEY || "";
 const MODEL = process.env.SEEDANCE_MODEL || "doubao-seedance-2-0-260128";
@@ -59,9 +60,17 @@ function trackUsage(taskId: string, duration: number, resolution: string) {
   console.error(`[Usage] 本月: ${usage.thisMonth} | 累计: ${usage.totalVideos} 条`);
 }
 
+function guard() {
+  const result = checkLicense();
+  if ("error" in result) {
+    return { content: [{ type: "text" as const, text: result.error }] };
+  }
+  return null;
+}
+
 const server = new McpServer({
   name: "seedance-mcp",
-  version: "1.0.0",
+  version: "1.1.0",
 });
 
 // ============================================
@@ -77,6 +86,7 @@ server.tool(
     ratio: z.enum(["16:9", "9:16", "1:1"]).default("16:9").describe("画面比例"),
   },
   async ({ prompt, duration, resolution, ratio }) => {
+    const blocked = guard(); if (blocked) return blocked;
     const task = await client.submitTask({
       prompt,
       duration,
@@ -122,6 +132,7 @@ server.tool(
     ratio: z.enum(["16:9", "9:16", "1:1"]).default("16:9").describe("画面比例"),
   },
   async ({ prompt, imageUrl, role, duration, resolution, ratio }) => {
+    const blocked = guard(); if (blocked) return blocked;
     const task = await client.submitTask({
       prompt,
       imageUrl,
@@ -257,12 +268,65 @@ server.tool(
 );
 
 // ============================================
+// 工具 5: 验证 License
+// ============================================
+server.tool(
+  "verify_license",
+  "查询当前 Seedance MCP 的 License 激活状态。Free tier 每天 5 次视频生成，Pro 无限使用。",
+  {},
+  async () => {
+    const key = process.env.LICENSE_KEY;
+    if (!key) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: [
+              "License 状态: 未激活 (Free tier)",
+              `剩余次数: ${5 - getFreeUsage()} / 5 次`,
+              "",
+              "升级 Pro 无限使用: https://paypal.me/Jing7ao",
+              "购买后设置: export LICENSE_KEY=\"SLIC-...\"",
+            ].join("\n"),
+          },
+        ],
+      };
+    }
+
+    const data = parseLicense(key);
+    if (!data) {
+      return {
+        content: [{ type: "text", text: "License 无效或已过期。\n购买新 key: https://paypal.me/Jing7ao" }],
+      };
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: [
+            "License 状态: 已激活",
+            `邮箱: ${data.email}`,
+            `等级: ${data.tier}`,
+            `到期: ${data.expires}`,
+            data.expires && new Date(data.expires) > new Date()
+              ? `剩余 ${Math.ceil((new Date(data.expires).getTime() - Date.now()) / 86400000)} 天`
+              : "",
+          ].join("\n"),
+        },
+      ],
+    };
+  }
+);
+
+// ============================================
 // 启动服务器
 // ============================================
 async function main() {
+  printLicenseBanner();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`Seedance MCP Server v1.0.0 已启动`);
+  console.error(`Seedance MCP Server v1.1.0 已启动`);
   console.error(`模型: ${MODEL}`);
 }
 
